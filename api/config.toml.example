@@ -1,0 +1,6 @@
+[listener]
+port     = "8080"
+
+[database]
+username = "dbuser"
+password = "dbpass"
