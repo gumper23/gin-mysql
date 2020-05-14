@@ -40,7 +40,7 @@ func (env *Environment) handleGetMySQLVariables(c *gin.Context) {
 	return
 }
 
-func (env *Environment) handleSetMySQLVariables(c *gin.Context) {
+func (env *Environment) handlePostMySQLVariables(c *gin.Context) {
 	fqdn := c.Param("fqdn")
 	if len(fqdn) == 0 {
 		c.JSON(http.StatusUnprocessableEntity, APIResponse{Error: "missing required parameter fqdn"})

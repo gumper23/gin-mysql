@@ -64,7 +64,7 @@ func main() {
 
 	// curl -d 'variable_name=super_read_only&variable_value=off' http://localhost:8080/api/v1/mysql/variables/127.0.0.1:43306 | jq '.message | fromjson'
 	// curl -d 'variable_name=super_read_only&variable_value=off' -d 'variable_name=read_only&variable_value=on' http://localhost:8080/api/v1/mysql/variables/127.0.0.1:43306 | jq '.message | fromjson'
-	r.POST("/api/v1/mysql/variables/:fqdn", env.handleSetMySQLVariables)
+	r.POST("/api/v1/mysql/variables/:fqdn", env.handlePostMySQLVariables)
 
 	fmt.Printf("Listening on port %s...\n", env.Port)
 	r.Run(":" + env.Port)
