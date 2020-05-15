@@ -1,10 +1,12 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 	"sync"
 
 	"github.com/juju/ansiterm"
@@ -111,23 +113,42 @@ func (env *Environment) outputGetVariables(variables string, fqdns []string) {
 	}
 }
 
-// -v super_read_only=1,read_only=1
-func (env *Environment) outputSetVariables(variables string, fqdns []string) {
+// -s super_read_only=1,read_only=1
+func (env *Environment) outputSetVariables(settings string, fqdns []string) {
 	var wg sync.WaitGroup
 	var storeMu sync.Mutex
 	var writeMu sync.Mutex
 
+	if len(settings) == 0 {
+		fmt.Fprintf(os.Stderr, "settings empty - nothing to set\n")
+		return
+	}
+	// Convert the settings string "var1=val1,var2=val2,varN=valN into a map[string]string"
+	settingsSlice := strings.Split(settings, ",")
+	settingsMap := make(map[string]string, len(settingsSlice))
+	for _, setting := range settingsSlice {
+		settingParts := strings.Split(setting, "=")
+		if len(settingParts) != 2 {
+			fmt.Fprintf(os.Stderr, "invalid setting %s; no '=' sign", setting)
+			return
+		}
+		settingsMap[settingParts[0]] = settingParts[1]
+	}
+	settingsJSON, err := json.Marshal(settingsMap)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error marshaling settings map to JSON: %s\n", err.Error())
+		return
+	}
+
+	// gin-mysql set-vars -s super_read_only=1,read_only=1 127.0.0.1:23306 127.0.0.1:33306 127.0.0.1:43306
 	apiResponses := make(map[string]APIResponse)
 	for _, fqdn := range fqdns {
 		wg.Add(1)
 		go func(api, vars, fqdn string) {
 			defer wg.Done()
 
-			adminURL := fmt.Sprintf("http://%s/api/v1/mysql/variables/%s", api, fqdn)
-			if len(variables) > 0 {
-				adminURL = fmt.Sprintf("%s?variables=%s", adminURL, vars)
-			}
-			resp, err := http.Get(adminURL)
+			apiURL := fmt.Sprintf("http://%s/api/v1/mysql/variables/%s", api, fqdn)
+			resp, err := http.Post(apiURL, "application/json", bytes.NewBuffer(settingsJSON))
 			if err != nil {
 				writeMu.Lock()
 				werr := ansiterm.NewWriter(os.Stderr)
@@ -156,7 +177,7 @@ func (env *Environment) outputSetVariables(variables string, fqdns []string) {
 			apiResponses[fqdn] = apiResponse
 			storeMu.Unlock()
 
-		}(env.ApiFQDN, variables, fqdn)
+		}(env.ApiFQDN, settings, fqdn)
 	}
 	wg.Wait()
 
