@@ -9,6 +9,12 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// APIResponse is the standard response from the API
+type APIResponse struct {
+	Message string `json:"message"`
+	Error   string `json:"error"`
+}
+
 func (env *Environment) handleGetStatus(c *gin.Context) {
 	c.JSON(http.StatusOK, APIResponse{Message: "OK"})
 }
@@ -53,31 +59,18 @@ func (env *Environment) handlePostMySQLVariables(c *gin.Context) {
 		port = fqdnParts[1]
 	}
 
-	// "variable_name=super_read_only&variable_value=on"
-	// "variable_name=read_only&variable_value=off"
-	varNames, ok := c.GetPostFormArray("variable_name")
-	if !ok {
-		c.JSON(http.StatusUnprocessableEntity, APIResponse{Error: "missing required parameter(s) variable_name"})
+	settings := make(map[string]string)
+	err := c.BindJSON(&settings)
+	if err != nil {
+		c.JSON(http.StatusUnprocessableEntity, APIResponse{Error: "missing settings JSON"})
 		return
 	}
-	varValues, ok := c.GetPostFormArray("variable_value")
-	if !ok {
-		c.JSON(http.StatusUnprocessableEntity, APIResponse{Error: "missing required parameter(s) variable_value"})
-		return
-	}
-	if len(varNames) != len(varValues) {
-		c.JSON(http.StatusUnprocessableEntity, APIResponse{Error: "number of variable names and values must match"})
+	if len(settings) == 0 {
+		c.JSON(http.StatusUnprocessableEntity, APIResponse{Error: "empty settings JSON"})
 		return
 	}
 
-	// Create a map of variable_name to variable_values
-	// Ex: {"super_read_only":"on", "read_only":"on"}
-	variableSettings := make(map[string]string, len(varNames))
-	for i, varName := range varNames {
-		variableSettings[varName] = varValues[i]
-	}
-
-	variables, err := SetMySQLVariables(env.DB.Username, env.DB.Password, host, port, "performance_schema", "", variableSettings)
+	variables, err := SetMySQLVariables(env.DB.Username, env.DB.Password, host, port, "performance_schema", "", settings)
 	if err != nil {
 		c.JSON(http.StatusOK, APIResponse{Error: fmt.Sprintf("error setting variables: %s", err.Error())})
 		return
