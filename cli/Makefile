@@ -5,7 +5,7 @@ GOCLEAN=$(GOCMD) clean
 GOTEST=$(GOCMD) test
 GOGET=$(GOCMD) get
 GOMOD=$(GOCMD) mod
-BINARY_NAME=gin-mysql-api
+BINARY_NAME=gin-mysql
 BINARY_LINUX=$(BINARY_NAME)_linux
 
 all: test tidy build
