@@ -69,7 +69,7 @@ func GetMySQLVariables(username, password, host, port, dbname, timeout, variable
 	if err != nil {
 		return
 	}
-	variables = make([]MySQLVariable, 0)
+	variables = make([]MySQLVariable, 0, len(rows))
 	for _, row := range rows {
 		var variable MySQLVariable
 		variable.Name = row["variable_name"]
