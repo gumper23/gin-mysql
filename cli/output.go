@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/juju/ansiterm"
 )
@@ -39,7 +40,10 @@ func (env *Environment) outputGetVariables(variables string, fqdns []string) {
 			if len(variables) > 0 {
 				adminURL = fmt.Sprintf("%s?variables=%s", adminURL, vars)
 			}
-			resp, err := http.Get(adminURL)
+			c := http.Client{
+				Timeout: 3 * time.Second,
+			}
+			resp, err := c.Get(adminURL)
 			if err != nil {
 				outMu.Lock()
 				werr := ansiterm.NewWriter(os.Stderr)
@@ -148,7 +152,10 @@ func (env *Environment) outputSetVariables(settings string, fqdns []string) {
 			defer wg.Done()
 
 			apiURL := fmt.Sprintf("http://%s/api/v1/mysql/variables/%s", api, fqdn)
-			resp, err := http.Post(apiURL, "application/json", bytes.NewBuffer(settingsJSON))
+			c := http.Client{
+				Timeout: 3 * time.Second,
+			}
+			resp, err := c.Post(apiURL, "application/json", bytes.NewBuffer(settingsJSON))
 			if err != nil {
 				outMu.Lock()
 				werr := ansiterm.NewWriter(os.Stderr)
