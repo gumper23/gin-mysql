@@ -26,8 +26,8 @@ type MySQLVariable struct {
 
 func (env *Environment) outputGetVariables(variables string, fqdns []string) {
 	var wg sync.WaitGroup
-	var storeMu sync.Mutex
-	var writeMu sync.Mutex
+	var mapMu sync.Mutex
+	var outMu sync.Mutex
 
 	apiResponses := make(map[string]APIResponse)
 	for _, fqdn := range fqdns {
@@ -41,32 +41,32 @@ func (env *Environment) outputGetVariables(variables string, fqdns []string) {
 			}
 			resp, err := http.Get(adminURL)
 			if err != nil {
-				writeMu.Lock()
+				outMu.Lock()
 				werr := ansiterm.NewWriter(os.Stderr)
 				werr.SetForeground(ansiterm.BrightRed)
 				werr.SetStyle(ansiterm.Bold)
 				fmt.Fprintf(werr, "API call error on %s: %s\n", fqdn, err.Error())
 				werr.Reset()
-				writeMu.Unlock()
+				outMu.Unlock()
 				return
 			}
 
 			apiResponse := APIResponse{}
 			err = json.NewDecoder(resp.Body).Decode(&apiResponse)
 			if err != nil {
-				writeMu.Lock()
+				outMu.Lock()
 				werr := ansiterm.NewWriter(os.Stderr)
 				werr.SetForeground(ansiterm.BrightRed)
 				werr.SetStyle(ansiterm.Bold)
 				fmt.Fprintf(werr, "JSON decode error on %s: %s\n", fqdn, err.Error())
 				werr.Reset()
-				writeMu.Unlock()
+				outMu.Unlock()
 				return
 			}
 
-			storeMu.Lock()
+			mapMu.Lock()
 			apiResponses[fqdn] = apiResponse
-			storeMu.Unlock()
+			mapMu.Unlock()
 
 		}(env.ApiFQDN, variables, fqdn)
 	}
@@ -140,7 +140,7 @@ func (env *Environment) outputSetVariables(settings string, fqdns []string) {
 		return
 	}
 
-	// gin-mysql set-vars -s super_read_only=1,read_only=1 127.0.0.1:23306 127.0.0.1:33306 127.0.0.1:43306
+	// gin-mysql set-vars super_read_only=1,read_only=1 127.0.0.1:23306 127.0.0.1:33306 127.0.0.1:43306
 	apiResponses := make(map[string]APIResponse)
 	for _, fqdn := range fqdns {
 		wg.Add(1)
