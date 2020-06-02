@@ -113,11 +113,11 @@ func (env *Environment) outputGetVariables(variables string, fqdns []string) {
 	}
 }
 
-// -s super_read_only=1,read_only=1
+// super_read_only=1,read_only=1
 func (env *Environment) outputSetVariables(settings string, fqdns []string) {
 	var wg sync.WaitGroup
-	var storeMu sync.Mutex
-	var writeMu sync.Mutex
+	var mapMu sync.Mutex
+	var outMu sync.Mutex
 
 	if len(settings) == 0 {
 		fmt.Fprintf(os.Stderr, "settings empty - nothing to set\n")
@@ -150,32 +150,32 @@ func (env *Environment) outputSetVariables(settings string, fqdns []string) {
 			apiURL := fmt.Sprintf("http://%s/api/v1/mysql/variables/%s", api, fqdn)
 			resp, err := http.Post(apiURL, "application/json", bytes.NewBuffer(settingsJSON))
 			if err != nil {
-				writeMu.Lock()
+				outMu.Lock()
 				werr := ansiterm.NewWriter(os.Stderr)
 				werr.SetForeground(ansiterm.BrightRed)
 				werr.SetStyle(ansiterm.Bold)
 				fmt.Fprintf(werr, "API call error on %s: %s\n", fqdn, err.Error())
 				werr.Reset()
-				writeMu.Unlock()
+				outMu.Unlock()
 				return
 			}
 
 			apiResponse := APIResponse{}
 			err = json.NewDecoder(resp.Body).Decode(&apiResponse)
 			if err != nil {
-				writeMu.Lock()
+				outMu.Lock()
 				werr := ansiterm.NewWriter(os.Stderr)
 				werr.SetForeground(ansiterm.BrightRed)
 				werr.SetStyle(ansiterm.Bold)
 				fmt.Fprintf(werr, "JSON decode error on %s: %s\n", fqdn, err.Error())
 				werr.Reset()
-				writeMu.Unlock()
+				outMu.Unlock()
 				return
 			}
 
-			storeMu.Lock()
+			mapMu.Lock()
 			apiResponses[fqdn] = apiResponse
-			storeMu.Unlock()
+			mapMu.Unlock()
 
 		}(env.ApiFQDN, settings, fqdn)
 	}
