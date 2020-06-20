@@ -49,7 +49,7 @@ func GetMySQLQueries(username, password, host, port, dbname, timeout string) (qu
 	}
 	defer db.Close()
 
-	queries, _, err = dbhelper.QueryRow(db, "select now() as qps_ts, variable_value from global_status where variable_name = 'queries'")
+	queries, _, err = dbhelper.QueryRow(db, "select now() as queries_ts, truncate(unix_timestamp(now(6)) * 1000000, 0) as queries_us, variable_value as queries from global_status where variable_name = 'queries'")
 	if err != nil {
 		return
 	}

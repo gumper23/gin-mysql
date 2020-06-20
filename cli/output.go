@@ -25,6 +25,93 @@ type MySQLVariable struct {
 	Value string `json:"variable_value"`
 }
 
+func (env *Environment) outputGetQueries(fqdns []string) {
+	var wg sync.WaitGroup
+	var outMu sync.Mutex
+	var mapMu sync.Mutex
+
+	apiResponses := make(map[string]APIResponse)
+	for _, fqdn := range fqdns {
+		wg.Add(1)
+		go func(api, fqdn string) {
+			defer wg.Done()
+
+			adminURL := fmt.Sprintf("http://%s/api/v1/mysql/queries/%s", api, fqdn)
+			c := http.Client{
+				Timeout: 3 * time.Second,
+			}
+			defer c.CloseIdleConnections()
+
+			resp, err := c.Get(adminURL)
+			if err != nil {
+				outMu.Lock()
+				w := ansiterm.NewWriter(os.Stderr)
+				w.SetForeground(ansiterm.BrightRed)
+				w.SetStyle(ansiterm.Bold)
+				fmt.Fprintf(w, "error calling API on %s: %s\n", fqdn, err.Error())
+				w.Reset()
+				outMu.Unlock()
+				return
+			}
+			defer resp.Body.Close()
+
+			apiResponse := APIResponse{}
+			err = json.NewDecoder(resp.Body).Decode(&apiResponse)
+			if err != nil {
+				outMu.Lock()
+				w := ansiterm.NewWriter(os.Stderr)
+				w.SetForeground(ansiterm.BrightRed)
+				w.SetStyle(ansiterm.Bold)
+				fmt.Fprintf(w, "error decoding JSON on %s: %s\n", fqdn, err.Error())
+				w.Reset()
+				outMu.Unlock()
+				return
+			}
+
+			mapMu.Lock()
+			apiResponses[fqdn] = apiResponse
+			mapMu.Unlock()
+
+		}(env.ApiFQDN, fqdn)
+	}
+	wg.Wait()
+
+	w := ansiterm.NewTabWriter(os.Stdout, 1, 1, 4, ' ', 0)
+	w.SetForeground(ansiterm.BrightBlue)
+	w.SetStyle(ansiterm.Bold)
+	fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", "FQDN", "Time", "Microseconds", "Queries")
+	w.Reset()
+	for _, fqdn := range fqdns {
+		if len(apiResponses[fqdn].Error) != 0 {
+			werr := ansiterm.NewWriter(os.Stderr)
+			werr.SetForeground(ansiterm.BrightRed)
+			werr.SetStyle(ansiterm.Bold)
+			fmt.Fprintf(os.Stderr, "Error from API: %s\n", apiResponses[fqdn].Error)
+			werr.Reset()
+			continue
+		}
+
+		if len(apiResponses[fqdn].Message) > 0 {
+			queries := make(map[string]string, 0)
+			err := json.Unmarshal([]byte(apiResponses[fqdn].Message), &queries)
+			if err != nil {
+				werr := ansiterm.NewWriter(os.Stderr)
+				werr.SetForeground(ansiterm.BrightRed)
+				werr.SetStyle(ansiterm.Bold)
+				fmt.Fprintf(os.Stderr, "Error unmarshalling JSON on %s: %s\n", fqdn, err.Error())
+				werr.Reset()
+				continue
+			}
+
+			// Body
+			w.SetForeground(ansiterm.BrightGreen)
+			fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", fqdn, queries["queries_ts"], queries["queries_us"], queries["queries"])
+			w.Reset()
+		}
+	}
+	w.Flush()
+}
+
 func (env *Environment) outputGetVariables(variables string, fqdns []string) {
 	var wg sync.WaitGroup
 	var mapMu sync.Mutex
@@ -43,6 +130,8 @@ func (env *Environment) outputGetVariables(variables string, fqdns []string) {
 			c := http.Client{
 				Timeout: 3 * time.Second,
 			}
+			defer c.CloseIdleConnections()
+
 			resp, err := c.Get(adminURL)
 			if err != nil {
 				outMu.Lock()

@@ -17,6 +17,9 @@ var (
 	setVars         = app.Command("set-vars", "Sets a list of global variables")
 	setVarsSettings = setVars.Arg("settings", "Ex: super_read_only=1,read_only=1").Required().String()
 	setVarsFQDNs    = setVars.Arg("fqdns", "A space-separated list of FQDNs. Ex: 127.0.0.1:13306").Required().Strings()
+
+	getQueries      = app.Command("queries", "Gets the queries status")
+	getQueriesFQDNs = getQueries.Arg("fqdns", "A space-separates list of FQDNs").Required().Strings()
 )
 
 // Environment holds environment settings
@@ -36,5 +39,8 @@ func main() {
 	// ./gin-mysql set-vars super_read_only=1,read_only=1 127.0.0.1:23306 127.0.0.1:33306 127.0.0.1:43306
 	case setVars.FullCommand():
 		env.outputSetVariables(*setVarsSettings, *setVarsFQDNs)
+
+	case getQueries.FullCommand():
+		env.outputGetQueries(*getQueriesFQDNs)
 	}
 }
