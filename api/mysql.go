@@ -41,6 +41,21 @@ func GetMySQLDB(username, password, host, port, dbname, timeout string) (db *sql
 	return
 }
 
+// GetMySQLQueries returns the status of the MySQL instance
+func GetMySQLQueries(username, password, host, port, dbname, timeout string) (queries map[string]string, err error) {
+	db, err := GetMySQLDB(username, password, host, port, dbname, timeout)
+	if err != nil {
+		return
+	}
+	defer db.Close()
+
+	queries, _, err = dbhelper.QueryRow(db, "select now() as qps_ts, variable_value from global_status where variable_name = 'queries'")
+	if err != nil {
+		return
+	}
+	return
+}
+
 // GetMySQLVariables returns a slice of MySQLVariable objects
 func GetMySQLVariables(username, password, host, port, dbname, timeout, variableList string) (variables []MySQLVariable, err error) {
 	db, err := GetMySQLDB(username, password, host, port, dbname, timeout)

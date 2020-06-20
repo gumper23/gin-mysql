@@ -19,6 +19,33 @@ func (env *Environment) handleGetStatus(c *gin.Context) {
 	c.JSON(http.StatusOK, APIResponse{Message: "OK"})
 }
 
+func (env *Environment) handleGetMySQLQueries(c *gin.Context) {
+	fqdn := c.Param("fqdn")
+	if len(fqdn) == 0 {
+		c.JSON(http.StatusUnprocessableEntity, APIResponse{Error: "missing required parameter fqdn"})
+		return
+	}
+	fqdnParts := strings.Split(fqdn, ":")
+	host := fqdnParts[0]
+	port := ""
+	if len(fqdnParts) > 1 {
+		port = fqdnParts[1]
+	}
+
+	queries, err := GetMySQLQueries(env.DB.Username, env.DB.Password, host, port, "performance_schema", "")
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, APIResponse{Error: fmt.Sprintf("error getting status: %s", err.Error())})
+		return
+	}
+	queriesJSON, err := json.Marshal(queries)
+	if err != nil {
+		c.JSON(http.StatusOK, APIResponse{Error: fmt.Sprintf("error marshaling JSON: %s", err.Error())})
+		return
+	}
+	c.JSON(http.StatusOK, APIResponse{Message: string(queriesJSON)})
+	return
+}
+
 func (env *Environment) handleGetMySQLVariables(c *gin.Context) {
 	fqdn := c.Param("fqdn")
 	if len(fqdn) == 0 {
@@ -41,6 +68,7 @@ func (env *Environment) handleGetMySQLVariables(c *gin.Context) {
 	variableJSON, err := json.Marshal(variables)
 	if err != nil {
 		c.JSON(http.StatusOK, APIResponse{Error: fmt.Sprintf("error marshaling JSON: %s", err.Error())})
+		return
 	}
 	c.JSON(http.StatusOK, APIResponse{Message: string(variableJSON)})
 	return

@@ -59,6 +59,9 @@ func main() {
 	// curl -d '{"super_read_only":"on", "read_only":"on"}' http://localhost:8080/api/v1/mysql/variables/127.0.0.1:43306 | jq '.message | fromjson'
 	r.POST("/api/v1/mysql/variables/:fqdn", env.handlePostMySQLVariables)
 
+	// curl -s http://localhost:8080/api/v1/mysql/queries/127.0.0.1:13306 | jq '.message | fromjson'
+	r.GET("/api/v1/mysql/queries/:fqdn", env.handleGetMySQLQueries)
+
 	fmt.Printf("Listening on port %s...\n", env.Port)
 	r.Run(":" + env.Port)
 }
